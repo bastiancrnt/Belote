@@ -1,6 +1,8 @@
 Trump_order = ["7", "8", "D", "R", "10", "A", "9", "V"]
 
 def valid_play(hand, suit_asked, trump, partner_is_master, master_card):
+    if suit_asked is None:
+        return hand
     hand_suits = []
     for card in hand:
         if card.suit == suit_asked:
