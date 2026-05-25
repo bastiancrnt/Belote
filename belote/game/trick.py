@@ -23,9 +23,10 @@ dict_non_atout = {
     }
 
 def trick_winner(trick, asked_suit, Trump):
+    cards = [card for card in trick if card is not None]
     Trumps = []
     asked_suits = []
-    for card in trick:
+    for card in cards:
         if card.suit == Trump:
             Trumps.append(card)
         elif card.suit == asked_suit:
