@@ -77,15 +77,22 @@ def run_match(label_a, label_b, agents, n_donnes, conn, seed, update_every=10):
         )
         save_initial_hands(conn, deal_id, hands)
 
+        db_ctx = {
+            'conn': conn,
+            'game_id': game_id,
+            'deal_id': deal_id,
+            'bot_version': f"{v_a}_vs_{v_b}",
+        }
         h = Hand(hands, bidding.suit, bidding.points, agents,
-                 verbose=False, first_player=first_player)
+                 verbose=False, first_player=first_player,
+                 taker_idx=taker_idx, db_context=db_ctx)
         pts0, pts1 = h.play_hand()
         s0, s1 = apply_contract(pts0, pts1, bidding.points, contract_team)
         scores[0] += s0
         scores[1] += s1
 
         finish_deal(conn, deal_id, s0, s1,
-                    last_trick_winner=0)  # approximation
+                    last_trick_winner=h.current_player)
 
         done += 1
         first_player = (first_player + 1) % 4
