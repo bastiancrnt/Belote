@@ -10,3 +10,6 @@ class Card:
         if other is None:
             return False
         return self.suit == other.suit and self.rank == other.rank
+
+    def __hash__(self):
+        return hash((self.suit, self.rank))
