@@ -13,11 +13,13 @@ def apply_contract(pts0, pts1, contract, contract_team):
         return pts0, pts1
     return (0, total) if contract_team == 0 else (total, 0)
 
-def run_match(agents, n_donnes, seed=42):
+def run_match(label_a, label_b, agents, n_donnes, seed=42, update_every=10):
     random.seed(seed)
     scores = [0, 0]
     done = 0
     first_player = 0
+    t_start = time.time()
+    t_last  = t_start
     while done < n_donnes:
         d = Deck()
         d.shuffle()
@@ -34,19 +36,35 @@ def run_match(agents, n_donnes, seed=42):
         scores[1] += s1
         done += 1
         first_player = (first_player + 1) % 4
-    return scores
 
-N = 30
+        if done % update_every == 0:
+            now = time.time()
+            elapsed = now - t_start
+            rate = done / elapsed
+            eta = (n_donnes - done) / rate if rate > 0 else 0
+            diff = scores[0] - scores[1]
+            sign = "+" if diff >= 0 else ""
+            print(f"  [{done:>3}/{n_donnes}]  {label_a}={scores[0]}  {label_b}={scores[1]}"
+                  f"  diff={sign}{diff}"
+                  f"  {rate:.1f} d/s  ETA {eta/60:.1f}min")
+
+    elapsed = time.time() - t_start
+    return scores, elapsed
+
+N = 200
 print(f"Benchmark V3 vs V1 — {N} donnes par match\n")
 
-v3a = [MonteCarloBot(), HeuristicBot(), MonteCarloBot(), HeuristicBot()]
-t0 = time.time()
-s = run_match(v3a, N, seed=1)
-t1 = time.time()
-print(f"Match 1  V3(eq0) vs V1(eq1) : V3={s[0]}  V1={s[1]}  diff={s[0]-s[1]:+d}  ({t1-t0:.0f}s)")
+print(f"=== Match 1 : V3(eq0) vs V1(eq1) ===")
+agents1 = [MonteCarloBot(), HeuristicBot(), MonteCarloBot(), HeuristicBot()]
+s1, t1 = run_match("V3", "V1", agents1, N, seed=1)
+print(f"  FINAL  V3={s1[0]}  V1={s1[1]}  diff={s1[0]-s1[1]:+d}  ({t1:.0f}s)\n")
 
-v3b = [HeuristicBot(), MonteCarloBot(), HeuristicBot(), MonteCarloBot()]
-t0 = time.time()
-s = run_match(v3b, N, seed=1)
-t1 = time.time()
-print(f"Match 2  V1(eq0) vs V3(eq1) : V1={s[0]}  V3={s[1]}  diff={s[1]-s[0]:+d}  ({t1-t0:.0f}s)")
+print(f"=== Match 2 : V1(eq0) vs V3(eq1) ===")
+agents2 = [HeuristicBot(), MonteCarloBot(), HeuristicBot(), MonteCarloBot()]
+s2, t2 = run_match("V1", "V3", agents2, N, seed=1)
+print(f"  FINAL  V1={s2[0]}  V3={s2[1]}  diff={s2[1]-s2[0]:+d}  ({t2:.0f}s)\n")
+
+total_v3 = s1[0] + s2[1]
+total_v1 = s1[1] + s2[0]
+print(f"=== TOTAL ({2*N} donnes) ===")
+print(f"  V3 : {total_v3}   V1 : {total_v1}   diff V3-V1 : {total_v3-total_v1:+d}")
