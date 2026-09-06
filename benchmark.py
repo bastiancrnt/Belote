@@ -16,8 +16,15 @@ from belote.database.repository import (
 def get_machine_id():
     path = os.path.join(os.path.dirname(__file__), "machine_id.txt")
     try:
-        return int(open(path).read().strip())
-    except Exception:
+        raw = open(path, "rb").read()
+        if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+            text = raw.decode("utf-16")       # écrit par PowerShell (echo "2" > ...)
+        else:
+            text = raw.decode("utf-8-sig")    # utf-8 normal, avec ou sans BOM
+        digits = "".join(c for c in text if c.isdigit())
+        return int(digits)
+    except Exception as e:
+        print(f"  [WARN] machine_id.txt illisible ({e}) — fallback machine #1")
         return 1
 
 MACHINE_ID = get_machine_id()
@@ -77,22 +84,15 @@ def run_match(label_a, label_b, agents, n_donnes, conn, seed, update_every=10):
         )
         save_initial_hands(conn, deal_id, hands)
 
-        db_ctx = {
-            'conn': conn,
-            'game_id': game_id,
-            'deal_id': deal_id,
-            'bot_version': f"{v_a}_vs_{v_b}",
-        }
         h = Hand(hands, bidding.suit, bidding.points, agents,
-                 verbose=False, first_player=first_player,
-                 taker_idx=taker_idx, db_context=db_ctx)
+                 verbose=False, first_player=first_player)
         pts0, pts1 = h.play_hand()
         s0, s1 = apply_contract(pts0, pts1, bidding.points, contract_team)
         scores[0] += s0
         scores[1] += s1
 
         finish_deal(conn, deal_id, s0, s1,
-                    last_trick_winner=h.current_player)
+                    last_trick_winner=0)  # approximation
 
         done += 1
         first_player = (first_player + 1) % 4
