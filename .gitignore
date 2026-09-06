@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local machine config
+machine_id.txt
+belote.db
+belote.db-wal
+belote.db-shm
