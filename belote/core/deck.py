@@ -1,24 +1,24 @@
-from belote.core.card import Card
 import random as rd
+from belote.core.card import Card
 
 ranks = ["7", "8", "9", "10", "V", "D", "R", "A"]
 suits = ["C", "K", "P", "T"]
 
+
 class Deck:
     def __init__(self):
-        self.deck = []
-        for rank in ranks:
-            for suit in suits:
-                self.deck.append(Card(suit, rank))
-    
+        self.deck = [Card(suit, rank) for rank in ranks for suit in suits]
+
     def shuffle(self):
         rd.shuffle(self.deck)
 
     def deal(self):
-        hands = [[],[],[],[]]
-        i = 0
-        for card in self.deck:
-            hands[i].append(card)
-            i+=1
-            i=i%4
+        """Distribution 3-2-3 : 3 cartes à chacun, puis 2, puis 3."""
+        hands = [[] for _ in range(4)]
+        idx = 0
+        for batch in [3, 2, 3]:
+            for player in range(4):
+                for _ in range(batch):
+                    hands[player].append(self.deck[idx])
+                    idx += 1
         return hands
