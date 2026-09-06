@@ -89,7 +89,7 @@ def record_action(conn, *, game_id, deal_id, turn_number, trick_number,
                   played_cards, chosen_card,
                   actor_type, rule_used=None, decision_time_ms=None,
                   partner_winning=None, opponent_winning=None,
-                  bot_version=BOT_VERSION):
+                  bot_version=BOT_VERSION, commit=True):
     team_id = player_id % 2
     conn.execute(
         """INSERT INTO actions
@@ -113,22 +113,27 @@ def record_action(conn, *, game_id, deal_id, turn_number, trick_number,
          1 if opponent_winning else 0,
          bot_version if actor_type == "bot" else None)
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
-def update_action_trick_result(conn, deal_id, turn_number, trick_winner, pts0, pts1):
+def update_action_trick_result(conn, deal_id, trick_number, trick_winner, pts0, pts1,
+                                commit=True):
+    """Met à jour les 4 actions d'un pli avec le gagnant et les points cumulés."""
     conn.execute(
         """UPDATE actions SET trick_winner=?, team_0_points_after_trick=?,
            team_1_points_after_trick=?
-           WHERE deal_id=? AND turn_number=?""",
-        (trick_winner, pts0, pts1, deal_id, turn_number)
+           WHERE deal_id=? AND trick_number=?""",
+        (trick_winner, pts0, pts1, deal_id, trick_number)
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 # ── tricks ────────────────────────────────────────────────────────────────────
 
-def save_trick(conn, deal_id, trick_number, leader, play_sequence, winner, points):
+def save_trick(conn, deal_id, trick_number, leader, play_sequence, winner, points,
+               commit=True):
     rows = play_sequence
     conn.execute(
         """INSERT INTO tricks
@@ -144,4 +149,5 @@ def save_trick(conn, deal_id, trick_number, leader, play_sequence, winner, point
          rows[3][0], encode(rows[3][1]),
          winner, winner % 2, points)
     )
-    conn.commit()
+    if commit:
+        conn.commit()
