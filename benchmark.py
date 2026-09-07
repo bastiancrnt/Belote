@@ -121,7 +121,7 @@ print(f"  FINAL  V3={s1[0]}  V1={s1[1]}  diff={s1[0]-s1[1]:+d}  ({t1:.0f}s)\n")
 
 print(f"=== Match 2 : V1(eq0) vs V3(eq1) ===")
 agents2 = [HeuristicBot(), MonteCarloBot(), HeuristicBot(), MonteCarloBot()]
-s2, t2 = run_match("V1", "V3", agents2, N, conn, seed=BASE_SEED + 2)
+s2, t2 = run_match("V1", "V3", agents2, N, conn, seed=BASE_SEED + 1)
 print(f"  FINAL  V1={s2[0]}  V3={s2[1]}  diff={s2[1]-s2[0]:+d}  ({t2:.0f}s)\n")
 
 total_v3 = s1[0] + s2[1]
