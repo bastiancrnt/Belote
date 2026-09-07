@@ -70,12 +70,19 @@ print(f"Machine #{MACHINE_ID}  (base seed {BASE_SEED})")
 # ── Comptage des règles (décisions MC / fallback) ──────────────────────────
 
 def _count_rules(agents):
-    """Retourne {rule: count} pour tous les bots qui ont last_rule_used."""
+    """Retourne {rule: count} pour tous les bots qui ont last_rule_used.
+    Si l'agent a rule_counts (MC bots), on l'utilise et on le remet à zéro."""
     counts = defaultdict(int)
     for agent in agents:
-        rule = getattr(agent, "last_rule_used", None)
-        if rule:
-            counts[rule] += 1
+        rc = getattr(agent, "rule_counts", None)
+        if rc:
+            for rule, n in rc.items():
+                counts[rule] += n
+            rc.clear()
+        else:
+            rule = getattr(agent, "last_rule_used", None)
+            if rule:
+                counts[rule] += 1
     return counts
 
 

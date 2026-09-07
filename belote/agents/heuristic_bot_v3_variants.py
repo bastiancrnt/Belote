@@ -61,6 +61,7 @@ class MonteCarloBotFull(MonteCarloBot):
     def choose(self, valid_cards, trump, context):
         if len(valid_cards) == 1:
             self.last_rule_used = RULE_MC_FORCED
+            self.rule_counts[RULE_MC_FORCED] += 1
             return valid_cards[0]
 
         trick_num = context.get("trick_num", 1) if context else 1
@@ -72,7 +73,9 @@ class MonteCarloBotFull(MonteCarloBot):
                 return result
 
         # Fallback V2 (erreur technique uniquement)
-        return HeuristicBotV2.choose(self, valid_cards, trump, context)
+        result = HeuristicBotV2.choose(self, valid_cards, trump, context)
+        self.rule_counts[self.last_rule_used] += 1
+        return result
 
     # ── Simulation corrigée ────────────────────────────────────────────────
 

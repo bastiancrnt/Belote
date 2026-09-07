@@ -1,5 +1,6 @@
 import random
 import time
+from collections import defaultdict
 from belote.agents.heuristic_bot_v2 import HeuristicBotV2
 from belote.core.card import Card
 from belote.game.hand import Hand
@@ -45,9 +46,14 @@ class MonteCarloBot(HeuristicBotV2):
     # Entrée principale
     # ──────────────────────────────────────────────────────────────────────
 
+    def reset_hand(self, trump):
+        super().reset_hand(trump)
+        self.rule_counts = defaultdict(int)
+
     def choose(self, valid_cards, trump, context):
         if len(valid_cards) == 1:
             self.last_rule_used = RULE_MC_FORCED
+            self.rule_counts[RULE_MC_FORCED] += 1
             return valid_cards[0]
 
         trick_num = context.get("trick_num", 1) if context else 1
@@ -58,7 +64,9 @@ class MonteCarloBot(HeuristicBotV2):
             if result is not None:
                 return result
 
-        return super().choose(valid_cards, trump, context)
+        result = super().choose(valid_cards, trump, context)
+        self.rule_counts[self.last_rule_used] += 1
+        return result
 
     # ──────────────────────────────────────────────────────────────────────
     # Monte Carlo
@@ -140,6 +148,7 @@ class MonteCarloBot(HeuristicBotV2):
         best = max(valid_cards,
                    key=lambda c: scores[id(c)] / max(counts[id(c)], 1))
         self.last_rule_used = RULE_MONTE_CARLO
+        self.rule_counts[RULE_MONTE_CARLO] += 1
         return best
 
     # ──────────────────────────────────────────────────────────────────────
