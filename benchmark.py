@@ -29,6 +29,7 @@ from belote.rules.scoring import apply_contract
 
 from belote.agents.heuristic_bot          import HeuristicBot
 from belote.agents.heuristic_bot_v2       import HeuristicBotV2
+from belote.agents.heuristic_bot_v2_2     import HeuristicBotV2_2
 from belote.agents.heuristic_bot_v3       import MonteCarloBot
 from belote.agents.heuristic_bot_v3_variants import (
     MonteCarloBotFull,
@@ -230,6 +231,8 @@ matchups = [
     ("V3_Selective",MonteCarloBotSelective,  "V2",          HeuristicBotV2),
     ("V3_Full",     MonteCarloBotFull,      "V3_Selective", MonteCarloBotSelective),
     ("V3_orig",     MonteCarloBot,           "V1",          HeuristicBot),  # référence
+    ("V2_2",        HeuristicBotV2_2,        "V2",          HeuristicBotV2),
+    ("V2_2",        HeuristicBotV2_2,        "V1",          HeuristicBot),
 ]
 
 for seed_offset, (na, ca, nb, cb) in enumerate(matchups, start=1):
