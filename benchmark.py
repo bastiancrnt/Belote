@@ -34,6 +34,10 @@ from belote.agents.heuristic_bot_v3       import MonteCarloBot
 from belote.agents.heuristic_bot_v3_variants import (
     MonteCarloBotFull,
     MonteCarloBotSelective,
+    MonteCarloBotS1,
+    MonteCarloBotS2,
+    MonteCarloBotS3,
+    MonteCarloBotS4,
     RULE_MC_UNCERTAIN_V2,
 )
 from belote.agents.heuristic_bot_v3 import RULE_MONTE_CARLO, RULE_MC_FORCED
@@ -237,6 +241,11 @@ matchups = [
     ("V3_Full",     MonteCarloBotFull,      "V2",          HeuristicBotV2),
     ("V3_Selective",MonteCarloBotSelective,  "V2",          HeuristicBotV2),
     ("V3_Full",     MonteCarloBotFull,      "V3_Selective", MonteCarloBotSelective),
+    ("S2_gap1.0",   MonteCarloBotS2,        "V1",           HeuristicBot),
+    ("S2_gap1.0",   MonteCarloBotS2,        "V3_Full",      MonteCarloBotFull),
+    ("S1_gap2.0",   MonteCarloBotS1,        "V3_Full",      MonteCarloBotFull),
+    ("S3_gap0.0",   MonteCarloBotS3,        "V3_Full",      MonteCarloBotFull),
+    ("S4_cf1.0",    MonteCarloBotS4,        "V3_Full",      MonteCarloBotFull),
     ("V3_orig",     MonteCarloBot,           "V1",          HeuristicBot),  # référence
     ("V2_2",        HeuristicBotV2_2,        "V2",          HeuristicBotV2),
     ("V2_2",        HeuristicBotV2_2,        "V1",          HeuristicBot),

@@ -81,23 +81,35 @@ def _history_already_signaled(suit, player_idx=0):
 class TestDrawLastBeatableTrump:
 
     def test_trigger_draws_last_trump(self):
-        """Un seul atout adverse reste (le 10) et on a le V → tirer avec le 9."""
+        """
+        Un seul atout reste (le 10) + partenaire connu vide en atout
+        → seul un adversaire peut avoir ce 10 → on tire avec le 9.
+        """
         bot = HeuristicBotV2_2()
         bot.reset_hand(TRUMP)
 
         hand = [c(TRUMP, "V"), c(TRUMP, "9"), c("C", "A"), c("P", "8")]
-        # Joués : A/R/D/8/7 d'atout → il reste seulement le 10 (TRUMP_ORDER = V,9,A,10,R,D,8,7)
         played = [
             c(TRUMP, "A"), c(TRUMP, "R"), c(TRUMP, "D"),
             c(TRUMP, "8"), c(TRUMP, "7"),
         ]
-        ctx = _ctx(leading=True, played_cards=played, full_hand=hand)
+        # Partenaire J2 a défaussé hors-atout sur un pli atout → connu vide en atout
+        history = [{
+            "suit_asked": TRUMP,
+            "cards": {0: c(TRUMP, "A"), 1: c(TRUMP, "R"), 2: c("C", "7"), 3: c(TRUMP, "D")},
+            "play_sequence": [
+                (0, c(TRUMP, "A")), (1, c(TRUMP, "R")),
+                (2, c("C", "7")), (3, c(TRUMP, "D")),
+            ],
+            "winner": 0,
+        }]
+        ctx = _ctx(player_idx=0, partner_idx=2, leading=True,
+                   played_cards=played, full_hand=hand, tricks_history=history)
         valid = hand
 
         result = bot.choose(valid, TRUMP, ctx)
         assert bot.last_rule_used == RULE_DRAW_LAST_BEATABLE_TRUMP
-        # Seule carte battant le 10 : 9 (le plus petit atout > 10 dans notre main)
-        assert result.rank == "9"
+        assert result.rank == "9"   # minimum battant le 10
 
     def test_no_trigger_multiple_remaining(self):
         """Plusieurs atouts adverses restent → règle non déclenchée."""
@@ -128,6 +140,67 @@ class TestDrawLastBeatableTrump:
 
         bot.choose(valid, TRUMP, ctx)
         assert bot.last_rule_used != RULE_DRAW_LAST_BEATABLE_TRUMP
+
+    def test_no_trigger_partner_may_have_last_trump(self):
+        """
+        Un seul atout reste (le 10) mais le partenaire n'est PAS connu vide
+        en atout → il pourrait avoir ce 10. La règle ne doit pas se déclencher.
+        """
+        bot = HeuristicBotV2_2()
+        bot.reset_hand(TRUMP)
+
+        hand = [c(TRUMP, "V"), c(TRUMP, "9"), c("C", "A")]
+        played = [
+            c(TRUMP, "A"), c(TRUMP, "R"), c(TRUMP, "D"),
+            c(TRUMP, "8"), c(TRUMP, "7"),
+        ]
+        # Pas de tricks_history → _voids = {} → partenaire non connu vide en atout
+        ctx = _ctx(leading=True, played_cards=played, full_hand=hand,
+                   tricks_history=[])
+        valid = hand
+
+        bot.choose(valid, TRUMP, ctx)
+        assert bot.last_rule_used != RULE_DRAW_LAST_BEATABLE_TRUMP
+
+    def test_trigger_requires_partner_known_void(self):
+        """
+        Un seul atout reste (le 10) ET le partenaire est connu vide en atout
+        (il a défaussé sur un pli atout) → la règle se déclenche.
+        """
+        bot = HeuristicBotV2_2()
+        bot.reset_hand(TRUMP)
+
+        hand = [c(TRUMP, "V"), c(TRUMP, "9"), c("C", "A")]
+        played = [
+            c(TRUMP, "A"), c(TRUMP, "R"), c(TRUMP, "D"),
+            c(TRUMP, "8"), c(TRUMP, "7"),
+        ]
+        # Partenaire (J2) a défaussé hors-atout sur un pli atout
+        # → _compute_player_voids met J2 vide en atout
+        history = [{
+            "suit_asked": TRUMP,
+            "cards": {
+                0: c(TRUMP, "A"),
+                1: c(TRUMP, "R"),
+                2: c("C", "7"),   # partenaire J2 défausse → vide en atout
+                3: c(TRUMP, "D"),
+            },
+            "play_sequence": [
+                (0, c(TRUMP, "A")), (1, c(TRUMP, "R")),
+                (2, c("C", "7")), (3, c(TRUMP, "D")),
+            ],
+            "winner": 0,
+        }]
+        ctx = _ctx(
+            player_idx=0, partner_idx=2,
+            leading=True, played_cards=played,
+            tricks_history=history,
+        )
+        valid = hand
+
+        result = bot.choose(valid, TRUMP, ctx)
+        assert bot.last_rule_used == RULE_DRAW_LAST_BEATABLE_TRUMP
+        assert result.rank == "9"   # minimum qui bat le 10
 
 
 # ═══════════════════════════════════════════════════════════════════

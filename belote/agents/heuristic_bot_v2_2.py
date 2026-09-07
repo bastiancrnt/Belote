@@ -173,11 +173,18 @@ class HeuristicBotV2_2(HeuristicBotV2):
         Si un seul rang d'atout adverse reste inconnu ET qu'on peut le battre,
         tirer l'atout avec la carte minimale gagnante.
 
-        Condition conservatrice : len(remaining) == 1 (on connaît exactement
-        quel atout reste). Si le partenaire en a encore, remaining > 1 → règle
-        non déclenchée.
+        Condition : len(remaining) == 1 ET le partenaire est connu vide en atout.
+        Sans cette deuxième garde, l'atout restant pourrait être celui du partenaire
+        et on le tirerait inutilement (gaspillage d'un V/9 sur notre propre camp).
         """
         if not trump_cards:
+            return None
+
+        # Garde partenaire : on ne tire que si le partenaire est connu vide en atout
+        partner_idx = getattr(self, "_context", {}).get("partner_idx")
+        voids = getattr(self, "_voids", {})
+        if partner_idx is None or trump not in voids.get(partner_idx, set()):
+            # Partenaire pas connu vide → l'atout restant peut être le sien
             return None
 
         all_ranks = set(TRUMP_ORDER)

@@ -373,3 +373,33 @@ class MonteCarloBotSelective(MonteCarloBotFull):
         # V2 écrase last_rule_used → on le restaure
         self.last_rule_used = RULE_MC_UNCERTAIN_V2
         return v2_card
+
+
+# ── Variantes Selective pour grille de paramètres ────────────────────────────
+
+class MonteCarloBotS1(MonteCarloBotSelective):
+    """Selective avec MIN_SCORE_GAP=2.0, CONFIDENCE_FACTOR=1.5."""
+    BOT_VERSION       = "monte_carlo_selective_s1"
+    MIN_SCORE_GAP     = 2.0
+    CONFIDENCE_FACTOR = 1.5
+
+
+class MonteCarloBotS2(MonteCarloBotSelective):
+    """Selective avec MIN_SCORE_GAP=1.0, CONFIDENCE_FACTOR=1.5."""
+    BOT_VERSION       = "monte_carlo_selective_s2"
+    MIN_SCORE_GAP     = 1.0
+    CONFIDENCE_FACTOR = 1.5
+
+
+class MonteCarloBotS3(MonteCarloBotSelective):
+    """Selective sans seuil absolu (MIN_SCORE_GAP=0.0), CONFIDENCE_FACTOR=1.5."""
+    BOT_VERSION       = "monte_carlo_selective_s3"
+    MIN_SCORE_GAP     = 0.0
+    CONFIDENCE_FACTOR = 1.5
+
+
+class MonteCarloBotS4(MonteCarloBotSelective):
+    """Selective avec MIN_SCORE_GAP=2.0, CONFIDENCE_FACTOR=1.0."""
+    BOT_VERSION       = "monte_carlo_selective_s4"
+    MIN_SCORE_GAP     = 2.0
+    CONFIDENCE_FACTOR = 1.0
