@@ -5,12 +5,7 @@ from belote.core.deck   import Deck
 SUIT_SYMBOLS = {"C": "♦", "K": "♥", "P": "♠", "T": "♣", "SA": "SA", "TA": "TA"}
 
 
-def apply_contract(pts_eq0, pts_eq1, contract, contract_team):
-    takers = pts_eq0 if contract_team == 0 else pts_eq1
-    total  = pts_eq0 + pts_eq1
-    if takers >= contract:
-        return pts_eq0, pts_eq1
-    return (0, total) if contract_team == 0 else (total, 0)
+from belote.rules.scoring import apply_contract
 
 
 def play_game(agents=None, target=501, verbose=True):

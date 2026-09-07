@@ -17,10 +17,10 @@ def get_machine_id():
     path = os.path.join(os.path.dirname(__file__), "machine_id.txt")
     try:
         raw = open(path, "rb").read()
-        if raw.startswith(b"ÿþ") or raw.startswith(b"þÿ"):
-            text = raw.decode("utf-16")
+        if raw.startswith(b"\xff\xfe") or raw.startswith(b"\xfe\xff"):
+            text = raw.decode("utf-16")       # écrit par PowerShell (echo "2" > ...)
         else:
-            text = raw.decode("utf-8-sig")
+            text = raw.decode("utf-8-sig")    # utf-8 normal, avec ou sans BOM
         digits = "".join(c for c in text if c.isdigit())
         return int(digits)
     except Exception as e:
@@ -33,20 +33,7 @@ BASE_SEED  = MACHINE_ID * 10_000   # ordi 1 → seeds 10001…, ordi 2 → 20001
 print(f"Machine #{MACHINE_ID}  (base seed {BASE_SEED})")
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-def apply_contract(pts0, pts1, contract, contract_team):
-    takers = pts0 if contract_team == 0 else pts1
-    if takers >= contract:
-        # Succes : preneur garde ses points + contrat, defenseur garde ses points
-        if contract_team == 0:
-            return pts0 + contract, pts1
-        else:
-            return pts0, pts1 + contract
-    else:
-        # Chute : preneur = 0, defenseur = contrat + 160
-        if contract_team == 0:
-            return 0, contract + 160
-        else:
-            return contract + 160, 0
+from belote.rules.scoring import apply_contract
 
 def bot_version_str(agents):
     return agents[0].BOT_VERSION if hasattr(agents[0], "BOT_VERSION") else "unknown"
@@ -92,22 +79,15 @@ def run_match(label_a, label_b, agents, n_donnes, conn, seed, update_every=10):
         )
         save_initial_hands(conn, deal_id, hands)
 
-        db_ctx = {
-            'conn': conn,
-            'game_id': game_id,
-            'deal_id': deal_id,
-            'bot_version': f"{v_a}_vs_{v_b}",
-        }
         h = Hand(hands, bidding.suit, bidding.points, agents,
-                 verbose=False, first_player=first_player,
-                 taker_idx=taker_idx, db_context=db_ctx)
+                 verbose=False, first_player=first_player)
         pts0, pts1 = h.play_hand()
         s0, s1 = apply_contract(pts0, pts1, bidding.points, contract_team)
         scores[0] += s0
         scores[1] += s1
 
         finish_deal(conn, deal_id, s0, s1,
-                    last_trick_winner=h.current_player)
+                    last_trick_winner=0)  # approximation
 
         done += 1
         first_player = (first_player + 1) % 4
