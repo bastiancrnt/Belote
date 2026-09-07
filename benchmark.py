@@ -16,8 +16,15 @@ from belote.database.repository import (
 def get_machine_id():
     path = os.path.join(os.path.dirname(__file__), "machine_id.txt")
     try:
-        return int(open(path).read().strip())
-    except Exception:
+        raw = open(path, "rb").read()
+        if raw.startswith(b"ÿþ") or raw.startswith(b"þÿ"):
+            text = raw.decode("utf-16")
+        else:
+            text = raw.decode("utf-8-sig")
+        digits = "".join(c for c in text if c.isdigit())
+        return int(digits)
+    except Exception as e:
+        print(f"  [WARN] machine_id.txt illisible ({e}) — fallback machine #1")
         return 1
 
 MACHINE_ID = get_machine_id()
