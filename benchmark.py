@@ -136,7 +136,8 @@ def run_match(label_a, label_b, agents, n_donnes, conn, seed,
         save_initial_hands(conn, deal_id, hands)
 
         h = Hand(hands, bidding.suit, bidding.points, agents,
-                 verbose=False, first_player=first_player)
+                 verbose=False, first_player=first_player,
+                 taker_idx=taker_idx)   # R1 : transmettre l'indice du preneur
         pts0, pts1 = h.play_hand()
         s0, s1 = apply_contract(pts0, pts1, bidding.points, contract_team)
         scores[0] += s0
@@ -224,8 +225,10 @@ def _print_rules(rule_counts, name_a, name_b):
     forc = rule_counts.get(RULE_MC_FORCED, 0)
     total_mc = mc + unc + forc
     if total_mc > 0:
+        evaluated = mc + unc   # décisions où MC a été effectivement évalué
         print(f"    Règles MC : MONTE_CARLO={mc}  "
-              f"MC_UNCERTAIN_V2={unc}  MC_FORCED={forc}")
+              f"MC_UNCERTAIN_V2={unc}  MC_FORCED={forc}  "
+              f"total_évalué={evaluated}")
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -235,26 +238,43 @@ conn = init_db()
 
 results = []
 
-# Confrontations définies dans le ticket
-matchups = [
-    ("V3_Full",     MonteCarloBotFull,      "V1",          HeuristicBot),
-    ("V3_Selective",MonteCarloBotSelective,  "V1",          HeuristicBot),
-    ("V3_Full",     MonteCarloBotFull,      "V2",          HeuristicBotV2),
-    ("V3_Selective",MonteCarloBotSelective,  "V2",          HeuristicBotV2),
-    ("V3_Full",     MonteCarloBotFull,      "V3_Selective", MonteCarloBotSelective),
-    ("S2_gap1.0",   MonteCarloBotS2,        "V1",           HeuristicBot),
-    ("S2_gap1.0",   MonteCarloBotS2,        "V3_Full",      MonteCarloBotFull),
-    ("S1_gap2.0",   MonteCarloBotS1,        "V3_Full",      MonteCarloBotFull),
-    ("S3_gap0.0",   MonteCarloBotS3,        "V3_Full",      MonteCarloBotFull),
-    ("S4_cf1.0",    MonteCarloBotS4,        "V3_Full",      MonteCarloBotFull),
-    ("V3_orig",     MonteCarloBot,           "V1",          HeuristicBot),  # référence
-    ("V2_2",        HeuristicBotV2_2,        "V2",          HeuristicBotV2),
-    ("V2_2",        HeuristicBotV2_2,        "V1",          HeuristicBot),
+# ── Confrontations générales (seeds distincts) ────────────────────────────────
+general_matchups = [
+    ("V3_Full",      MonteCarloBotFull,      "V1",  HeuristicBot),
+    ("V3_Selective", MonteCarloBotSelective,  "V1",  HeuristicBot),
+    ("V3_Full",      MonteCarloBotFull,      "V2",  HeuristicBotV2),
+    ("V3_Selective", MonteCarloBotSelective,  "V2",  HeuristicBotV2),
+    ("V3_Full",      MonteCarloBotFull,      "V3_Selective", MonteCarloBotSelective),
+    ("S2_gap1.0",    MonteCarloBotS2,        "V1",  HeuristicBot),
+    ("V3_orig",      MonteCarloBot,           "V1",  HeuristicBot),   # référence
+    ("V2_2",         HeuristicBotV2_2,        "V2",  HeuristicBotV2),
+    ("V2_2",         HeuristicBotV2_2,        "V1",  HeuristicBot),
 ]
 
-for seed_offset, (na, ca, nb, cb) in enumerate(matchups, start=1):
+for seed_offset, (na, ca, nb, cb) in enumerate(general_matchups, start=1):
     seed = BASE_SEED + seed_offset
     res  = run_matchup(na, ca, nb, cb, N, conn, seed=seed, verbose=True)
+    results.append(res)
+
+# ── Calibration Selective : corpus commun pour comparer les variantes (R2) ───
+# Toutes les variantes Selective reçoivent exactement les mêmes donnes.
+CALIBRATION_SEED = BASE_SEED + 100
+
+print(f"\n{'='*60}")
+print(f"  CALIBRATION Selective (seed commun = {CALIBRATION_SEED})")
+print(f"{'='*60}")
+
+calibration_matchups = [
+    ("Selective_gap5_cf1.5", MonteCarloBotSelective, "V3_Full", MonteCarloBotFull),
+    ("S1_gap2_cf1.5",        MonteCarloBotS1,        "V3_Full", MonteCarloBotFull),
+    ("S2_gap1_cf1.5",        MonteCarloBotS2,        "V3_Full", MonteCarloBotFull),
+    ("S3_gap0_cf1.5",        MonteCarloBotS3,        "V3_Full", MonteCarloBotFull),
+    ("S4_gap2_cf1.0",        MonteCarloBotS4,        "V3_Full", MonteCarloBotFull),
+]
+
+for na, ca, nb, cb in calibration_matchups:
+    res = run_matchup(na, ca, nb, cb, N, conn,
+                      seed=CALIBRATION_SEED, verbose=True)   # R2 : même corpus
     results.append(res)
 
 # ── Tableau récapitulatif ──────────────────────────────────────────────────────
