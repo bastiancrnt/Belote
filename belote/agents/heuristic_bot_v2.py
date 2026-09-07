@@ -45,24 +45,34 @@ class HeuristicBotV2(HeuristicBot):
         """
         Parcourt l'historique des plis et déduit les chicanes certaines.
 
-        Règles d'inférence :
+        Règles d'inférence (B5 fix) :
           - Joueur n'a pas suivi la couleur demandée
             → vide dans cette couleur.
           - Joueur n'a pas suivi ET a joué une carte hors-atout (défausse)
+            ET son partenaire n'était PAS maître avant son tour
             → vide en atout aussi (sinon il aurait dû couper).
         """
+        from belote.game.trick import trick_winner
         voids = {i: set() for i in range(4)}
         for trick in tricks_history:
             suit_asked = trick.get("suit_asked")
-            if not suit_asked:
+            seq = trick.get("play_sequence", [])
+            if not suit_asked or not seq:
                 continue
-            for pidx, card in trick["cards"].items():
+            partial = [None] * 4
+            for i, (pidx, card) in enumerate(seq):
                 if card.suit != suit_asked:
-                    # N'a pas suivi la couleur demandée
                     voids[pidx].add(suit_asked)
                     if card.suit != trump:
-                        # Défausse hors-atout → vide en atout aussi
-                        voids[pidx].add(trump)
+                        # Inférer void atout seulement si partenaire n'était pas maître
+                        current_winner = trick_winner(partial, suit_asked, trump)
+                        partner_winning = (
+                            current_winner is not None
+                            and (current_winner + 2) % 4 == pidx
+                        )
+                        if not partner_winning:
+                            voids[pidx].add(trump)
+                partial[pidx] = card
         return voids
 
     # ──────────────────────────────────────────────────────────────────────

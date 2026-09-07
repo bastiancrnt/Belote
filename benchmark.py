@@ -99,7 +99,7 @@ def run_match(label_a, label_b, agents, n_donnes, conn, seed,
     agents[0,2] = équipe 0 (label_a), agents[1,3] = équipe 1 (label_b).
     Retourne (scores, elapsed_s, rule_counts).
     """
-    random.seed(seed)
+    # seed par donne (B1) — pas de seed global ici
     scores       = [0, 0]
     rule_totals  = defaultdict(int)
     done         = 0
@@ -111,16 +111,17 @@ def run_match(label_a, label_b, agents, n_donnes, conn, seed,
     game_id = create_game(conn, bot_version=f"{v_a}_vs_{v_b}", seed=seed)
 
     while done < n_donnes:
-        d = Deck()
-        d.shuffle()
-        hands = d.deal()
-        bidding, contract_team = run_bidding(
+        donne_seed = seed * 10000 + done
+        random.seed(donne_seed)          # ← seed isolé par donne (B1 RNG)
+        d = Deck(); d.shuffle(); hands = d.deal()  # seed isolé par donne (B1)
+
+        bidding, taker_idx = run_bidding(
             first_player, hands=hands, agents=agents, verbose=False)
         if bidding is None:
             first_player = (first_player + 1) % 4
             continue
 
-        taker_idx = contract_team
+        contract_team = taker_idx % 2
 
         deal_id = create_deal(
             conn, game_id, done + 1,

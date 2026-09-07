@@ -156,14 +156,27 @@ class MonteCarloBot(HeuristicBotV2):
     # ──────────────────────────────────────────────────────────────────────
 
     def _build_voids(self, tricks_history, trump):
+        """B5 fix : n'infère void atout que si le partenaire n'était pas maître."""
+        from belote.game.trick import trick_winner
         voids = {}
         for trick in tricks_history:
-            suit_asked = trick["suit_asked"]
-            for (pidx, card) in trick.get("play_sequence", []):
+            suit_asked = trick.get("suit_asked")
+            seq = trick.get("play_sequence", [])
+            if not suit_asked:
+                continue
+            partial = [None] * 4
+            for i, (pidx, card) in enumerate(seq):
                 if card.suit != suit_asked:
                     voids.setdefault(pidx, set()).add(suit_asked)
                     if card.suit != trump:
-                        voids.setdefault(pidx, set()).add(trump)
+                        current_winner = trick_winner(partial, suit_asked, trump)
+                        partner_winning = (
+                            current_winner is not None
+                            and (current_winner + 2) % 4 == pidx
+                        )
+                        if not partner_winning:
+                            voids.setdefault(pidx, set()).add(trump)
+                partial[pidx] = card
         return voids
 
     def _build_fixed(self, taker_idx, trump, bid_points,
@@ -305,9 +318,7 @@ class MonteCarloBot(HeuristicBotV2):
                         if remaining[p] > 0
                         and card.suit not in sample_voids.get(p, set())]
             if not eligible:
-                eligible = [p for p in other_players if remaining[p] > 0]
-            if not eligible:
-                return None
+                return None  # B6 : ne pas violer les contraintes de chicane
             p = random.choice(eligible)
             assigned[p].append(card)
             remaining[p] -= 1

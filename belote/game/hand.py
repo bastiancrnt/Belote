@@ -65,6 +65,7 @@ class Hand:
             "trick_num":         trick_num,
             "tricks_history":    list(self.tricks_history),
             "taker_idx":         self.taker_idx,
+            "bid_points":        self.contract,
             "full_hand":         list(self.hands[player_idx]),
         }
 

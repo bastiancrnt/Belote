@@ -236,7 +236,9 @@ class MonteCarloBotSelective(MonteCarloBotFull):
         """
         Surcharge de _mc_choose.
 
-        Collecte moyenne + variance par carte, calcule la confiance, et :
+        Collecte des résultats appariés par simulation (même distribution →
+        même contexte pour toutes les cartes candidates). Calcule delta et
+        SE apparié entre la meilleure et la deuxième carte (B7), et :
           – si confiant  → retourne la meilleure carte (MONTE_CARLO)
           – si incertain → décide via V2, conserve MONTE_CARLO_UNCERTAIN_V2
         """
@@ -288,10 +290,11 @@ class MonteCarloBotSelective(MonteCarloBotFull):
             else 0
         )
 
-        # ── Stats par carte : somme, somme², compteur ─────────────────────
-        sums    = {id(c): 0.0 for c in valid_cards}
-        sums_sq = {id(c): 0.0 for c in valid_cards}
-        counts  = {id(c): 0   for c in valid_cards}
+        # ── Simulations appariées (B7) ─────────────────────────────────────
+        # Chaque entrée de sim_results est un dict {id(card): score}.
+        # On n'inclut une simulation que si TOUTES les cartes ont un résultat
+        # valide sur la même distribution, garantissant l'appariement.
+        sim_results = []
 
         deadline = time.perf_counter() + self.TIME_BUDGET
         while time.perf_counter() < deadline:
@@ -302,25 +305,30 @@ class MonteCarloBotSelective(MonteCarloBotFull):
             )
             if dist is None:
                 continue
+            sim_row = {}
+            all_ok = True
             for card in valid_cards:
                 pts = self._simulate(
                     card, dist, player_idx, other_players,
                     full_hand, trump, bid_points or 80,
                     taker_idx, trick_so_far,
                 )
-                if pts is not None:
-                    v = float(pts[my_team])
-                    sums[id(card)]    += v
-                    sums_sq[id(card)] += v * v
-                    counts[id(card)]  += 1
+                if pts is None:
+                    all_ok = False
+                    break
+                sim_row[id(card)] = float(pts[my_team])
+            if all_ok:
+                sim_results.append(sim_row)
 
         # Aucune simulation valide
-        if not any(counts[id(c)] > 0 for c in valid_cards):
+        if not sim_results:
             return None
+
+        n = len(sim_results)
 
         # ── Moyennes ──────────────────────────────────────────────────────
         means = {
-            id(c): (sums[id(c)] / counts[id(c)]) if counts[id(c)] > 0 else -1e9
+            id(c): sum(r[id(c)] for r in sim_results) / n
             for c in valid_cards
         }
         ranked = sorted(valid_cards, key=lambda c: means[id(c)], reverse=True)
@@ -328,47 +336,47 @@ class MonteCarloBotSelective(MonteCarloBotFull):
 
         if len(ranked) == 1:
             self.last_rule_used = RULE_MONTE_CARLO
+            self.rule_counts[RULE_MONTE_CARLO] += 1  # B4
             return best
 
         second = ranked[1]
-        n1, n2 = counts[id(best)], counts[id(second)]
-        m1, m2 = means[id(best)], means[id(second)]
+        m1     = means[id(best)]
+        m2     = means[id(second)]
         delta  = m1 - m2
 
-        # ── Écart-type et erreur standard ─────────────────────────────────
-        se1 = se2 = 0.0
-        if n1 >= 2:
-            var1 = max(0.0, sums_sq[id(best)]   / n1 - m1 * m1)
-            se1  = math.sqrt(var1 / n1)
-        if n2 >= 2:
-            var2 = max(0.0, sums_sq[id(second)] / n2 - m2 * m2)
-            se2  = math.sqrt(var2 / n2)
-
-        combined_se = math.sqrt(se1 ** 2 + se2 ** 2)
+        # ── SE apparié (B7) ───────────────────────────────────────────────
+        diffs     = [r[id(best)] - r[id(second)] for r in sim_results]
+        mean_d    = sum(diffs) / n
+        paired_se = 0.0
+        if n >= 2:
+            var_d     = sum((d - mean_d) ** 2 for d in diffs) / (n - 1)
+            paired_se = math.sqrt(var_d / n)
 
         confident = (
             delta >= self.MIN_SCORE_GAP
-            and (combined_se == 0.0
-                 or delta > self.CONFIDENCE_FACTOR * combined_se)
+            and (paired_se == 0.0
+                 or delta > self.CONFIDENCE_FACTOR * paired_se)
         )
 
-        # Métriques stockées pour la DB (accessibles depuis hand.py si besoin)
+        # Métriques stockées pour la DB
         self.mc_meta = {
             "best_mean":          round(m1, 2),
             "second_mean":        round(m2, 2),
             "score_gap":          round(delta, 2),
-            "best_n_simulations": n1,
+            "best_n_simulations": n,
             "confidence_metric":  round(
-                delta / combined_se if combined_se > 0.0 else float("inf"), 2
+                delta / paired_se if paired_se > 0.0 else float("inf"), 2
             ),
         }
 
         if confident:
             self.last_rule_used = RULE_MONTE_CARLO
+            self.rule_counts[RULE_MONTE_CARLO] += 1  # B4
             return best
 
         # ── Incertain : V2 décide, on conserve la règle MC_UNCERTAIN ──────
         self.last_rule_used = RULE_MC_UNCERTAIN_V2
+        self.rule_counts[RULE_MC_UNCERTAIN_V2] += 1  # B4
         v2_card = HeuristicBotV2.choose(self, valid_cards, trump, context)
         # V2 écrase last_rule_used → on le restaure
         self.last_rule_used = RULE_MC_UNCERTAIN_V2

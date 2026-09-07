@@ -83,6 +83,6 @@ def run_bidding(first_player=0, hands=None, agents=None, verbose=False):
 
     for player_idx, bid in reversed(contracts):
         if bid != "pass":
-            return bid, player_idx % 2
+            return bid, player_idx
 
     return None, None
