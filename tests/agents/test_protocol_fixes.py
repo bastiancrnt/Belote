@@ -550,3 +550,98 @@ class TestR2CommonCorpus:
         corp_a = self._deals(10100, n=10)
         corp_b = self._deals(10101, n=10)
         assert corp_a != corp_b, "Seeds différents → corpus identique (anomalie)"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# R3 — boucle infinie si personne n'enchérit : deal_idx distinct de done
+# ─────────────────────────────────────────────────────────────────────────────
+
+class TestR3NoBidInfiniteLoop:
+    """
+    Avant R3 : donne_seed = seed*10000 + done.
+    Si personne n'enchérit, done ne bouge pas → même seed → mêmes mains
+    → même résultat des enchères → boucle infinie.
+    Après R3 : deal_idx s'incrémente toujours, done seulement si donne jouée.
+    """
+
+    def _fingerprint(self, hands):
+        return tuple(
+            tuple(f"{c.suit}{c.rank}" for c in hands[i]) for i in range(4)
+        )
+
+    def test_consecutive_deal_idx_give_different_hands(self):
+        """deal_idx=0 et deal_idx=1 → seeds distincts → mains distinctes."""
+        SEED = 42
+        results = []
+        for deal_idx in range(5):
+            donne_seed = SEED * 10000 + deal_idx
+            random.seed(donne_seed)
+            d = Deck(); d.shuffle()
+            results.append(self._fingerprint(d.deal()))
+        # Toutes les distributions doivent être différentes
+        assert len(results) == len(set(results)), (
+            "Deux deal_idx consécutifs produisent les mêmes mains — R3 cassé"
+        )
+
+    def test_loop_terminates_with_passes(self):
+        """
+        Simule la logique du benchmark : 2 distributions sans enchère,
+        puis N valides. Vérifie done=N et deal_idx=N+2.
+        """
+        N = 4
+        SEED = 7
+        done = 0
+        deal_idx = 0
+
+        while done < N:
+            deal_idx += 1                    # R3 : toujours incrémenter
+            bid_happens = (deal_idx > 2)     # les 2 premières = passe générale
+            if not bid_happens:
+                continue
+            done += 1
+
+        assert done == N,        f"done={done} ≠ {N}"
+        assert deal_idx == N + 2, f"deal_idx={deal_idx}, attendu {N + 2}"
+
+    def test_old_logic_would_loop_forever(self):
+        """
+        Vérifie que l'ANCIENNE logique (done comme seed) boucle :
+        même seed → même distribution → même résultat d'enchère.
+        """
+        SEED = 999
+        done = 0  # n'avance pas sur passe
+
+        seen_seeds = set()
+        for _ in range(20):           # 20 itérations avec l'ancienne logique
+            bad_seed = SEED * 10000 + done   # done reste 0 → seed identique
+            seen_seeds.add(bad_seed)
+            # done ne s'incrémente pas (passe)
+
+        assert len(seen_seeds) == 1, (
+            "L'ancienne logique devrait produire toujours le même seed"
+        )
+
+    def test_passes_do_not_contaminate_mc_rng(self):
+        """
+        Après une passe générale (deal_idx incrémenté, done=0),
+        la donne suivante repart d'un seed frais et indépendant.
+        """
+        SEED = 13
+        # Tentative 0 : passe (deal_idx=0 utilisé, deal_idx devient 1)
+        random.seed(SEED * 10000 + 0)
+        d0 = Deck(); d0.shuffle(); _hands0 = d0.deal()
+        # Simuler activité MC sur ce deal qui n'aboutit pas
+        for _ in range(5_000):
+            random.random()
+
+        # Tentative 1 : seed indépendant peu importe l'activité précédente
+        random.seed(SEED * 10000 + 1)
+        d1 = Deck(); d1.shuffle(); hands1a = self._fingerprint(d1.deal())
+
+        # Rejouer tentative 1 sans activité intermédiaire → même résultat
+        random.seed(SEED * 10000 + 1)
+        d1b = Deck(); d1b.shuffle(); hands1b = self._fingerprint(d1b.deal())
+
+        assert hands1a == hands1b, (
+            "Tentative 1 n'est pas reproductible — contamination RNG (R3)"
+        )

@@ -103,6 +103,7 @@ def run_match(label_a, label_b, agents, n_donnes, conn, seed,
     scores       = [0, 0]
     rule_totals  = defaultdict(int)
     done         = 0
+    deal_idx     = 0
     first_player = 0
     t_start      = time.time()
 
@@ -110,8 +111,10 @@ def run_match(label_a, label_b, agents, n_donnes, conn, seed,
     v_b = agents[1].BOT_VERSION if hasattr(agents[1], "BOT_VERSION") else "unknown"
     game_id = create_game(conn, bot_version=f"{v_a}_vs_{v_b}", seed=seed)
 
+    passes_consecutives = 0
     while done < n_donnes:
-        donne_seed = seed * 10000 + done
+        donne_seed = seed * 10000 + deal_idx
+        deal_idx += 1                    # toujours incrémenter (R3)
         random.seed(donne_seed)          # ← seed isolé par donne (B1 RNG)
         d = Deck(); d.shuffle(); hands = d.deal()  # seed isolé par donne (B1)
 
@@ -119,7 +122,11 @@ def run_match(label_a, label_b, agents, n_donnes, conn, seed,
             first_player, hands=hands, agents=agents, verbose=False)
         if bidding is None:
             first_player = (first_player + 1) % 4
+            passes_consecutives += 1
+            if verbose and passes_consecutives % 10 == 0:
+                print(f"  [PASSE×{passes_consecutives}] {done}/{n_donnes} donnes jouées", flush=True)
             continue
+        passes_consecutives = 0
 
         contract_team = taker_idx % 2
 
@@ -160,7 +167,7 @@ def run_match(label_a, label_b, agents, n_donnes, conn, seed,
             sign    = "+" if diff >= 0 else ""
             print(f"  [{done:>3}/{n_donnes}]  {label_a}={scores[0]}  "
                   f"{label_b}={scores[1]}  diff={sign}{diff}"
-                  f"  {rate:.1f} d/s  ETA {eta/60:.1f}min")
+                  f"  {rate:.1f} d/s  ETA {eta/60:.1f}min", flush=True)
             sync_to_mount()
 
     finish_game(conn, game_id, scores[0], scores[1],
